@@ -1,0 +1,188 @@
+load "Morley"
+verbosity=0.0; 
+load "iovtk"
+macro bilaplacian(u, v)( dxx(u)*dxx(v) + dyy(u)*dyy(v) + 2.0*dxy(u)*dxy(v) )//
+macro vkm(u,v)( dxx(u)*dyy(v) + dyy(u)*dxx(v) - 2.0*dxy(u)*dxy(v) )//
+
+/*macro ue(t)(exp(-t)*(x*y*(x-1)*(y-1))^2)//
+macro uex(t)(2*x*y^2*exp(-t)*(x - 1)^2*(y - 1)^2 + x^2*y^2*exp(-t)*(2*x - 2)*(y - 1)^2)//
+macro uey(t)(2*x^2*y*exp(-t)*(x - 1)^2*(y - 1)^2 + x^2*y^2*exp(-t)*(2*y - 2)*(x - 1)^2)//
+macro uexy(t)(2*x*y^2*exp(-t)*(2*y - 2)*(x - 1)^2 + 2*x^2*y*exp(-t)*(2*x - 2)*(y - 1)^2 + x^2*y^2*exp(-t)*(2*x - 2)*(2*y - 2) + 4*x*y*exp(-t)*(x - 1)^2*(y - 1)^2)//
+macro uexx(t)(2*x^2*y^2*exp(-t)*(y - 1)^2 + 2*y^2*exp(-t)*(x - 1)^2*(y - 1)^2 + 4*x*y^2*exp(-t)*(2*x - 2)*(y - 1)^2)//
+macro ueyy(t)(2*x^2*y^2*exp(-t)*(x - 1)^2 + 2*x^2*exp(-t)*(x - 1)^2*(y - 1)^2 + 4*x^2*y*exp(-t)*(2*y - 2)*(x - 1)^2)//
+macro F(t)(exp(-t)*(x*y*(x-1)*(y-1))^2+8*exp(-t)*(3*x^4 - 6*x^3 + 36*x^2*y^2 - 36*x^2*y + 9*x^2 - 36*x*y^2 + 36*x*y - 6*x + 3*y^4 - 6*y^3 + 9*y^2 - 6*y + 1))//
+macro Fx(t)(2*x*y^2*exp(-t)*(x - 1)^2*(y - 1)^2 + x^2*y^2*exp(-t)*(2*x - 2)*(y - 1)^2+8*exp(-t)*(12*x^3 - 18*x^2 + 72*x*y^2 - 72*x*y + 18*x - 36*y^2 + 36*y - 6))//
+macro Fy(t)(2*x^2*y*exp(-t)*(x - 1)^2*(y - 1)^2 + x^2*y^2*exp(-t)*(2*y - 2)*(x - 1)^2+8*exp(-t)*(72*x^2*y - 36*x^2 - 72*x*y + 36*x + 12*y^3 - 18*y^2 + 18*y - 6))//*/
+int p=5;
+real T=1.0;   
+real[int] l2error(p), l2order(p-1), Energyerror(p),Energyorder(p-1),l2errorv(p), l2orderv(p-1), Energyerrorv(p),Energyorderv(p-1),hh(p);
+/////////////////////////////////////////////////
+for(int j=0;j<p;j++){
+int M=2^(j+1);
+mesh Th =square(M, M);
+plot(Th, wait=true);
+//real s;
+//s=(sqrt(2)/(M));
+fespace Vh(Th,P2Morley); // The Morley FES
+func real ue(real t){return exp(-t)*(x*(1-x)*y*(1-y))^2 ;}
+func real uex(real t){return (2.0)*exp(-t)*(x*(1-x)*y^2*(1-y)^2)*((1.0)-(2.0)*x) ;}
+func real uey(real t){return (2.0)*exp(-t)*(x^2*(1-x)^2*y*(1-y))*((1.0)-(2.0)*y); }
+func real uexx(real t){return exp(-t)*((2.0)-(12.0)*x +(12.0)*x^2)*(y*(1-y))^2 ;}
+func real ueyy(real t){return exp(-t)*((2.0)-(12.0)*y + (12.0)*y^2)*(x*(1-x))^2  ;}
+func real uexy(real t){return exp(-t)*((2.0)*x-(6.0)*x^2 + (4.0)*x^3)*( (2.0)*y-(6.0)*y^2+(4.0)*y^3) ;}
+
+func real ve(real t){return exp(t)*(x*(1-x)*y*(1-y))^2 ;}
+func real vex(real t){return (2.0)*exp(t)*(x*(1-x)*y^2*(1-y)^2)*((1.0)-(2.0)*x) ;}
+func real vey(real t){return (2.0)*exp(t)*(x^2*(1-x)^2*y*(1-y))*((1.0)-(2.0)*y); }
+func real vexx(real t){return exp(t)*((2.0)-(12.0)*x + (12.0)*x^2)*(y*(1-y))^2 ;}
+func real veyy(real t){return exp(t)*((2.0)-(12.0)*y + (12.0)*y^2)*(x*(1-x))^2  ;}
+func real vexy(real t){return exp(t)*((2.0)*x-(6.0)*x^2 + (4.0)*x^3)*( (2.0)*y-(6.0)*y^2+(4.0)*y^3) ;}
+
+func real F(real t) {return 8*exp(-t)*(y - 1)^2*(6*x^2 - 6*x + 1) + 24*x^2*exp(-t)*(x - 1)^2 + 24*y^2*exp(-t)*(y - 1)^2 + 8*y^2*exp(-t)*(6*x^2 - 6*x + 1) + 32*x^2*y^2*(2*x^2 - 3*x + 1)^2*(2*y^2 - 3*y + 1)^2 + 16*y*exp(-t)*(2*y - 2)*(6*x^2 - 6*x + 1) + x^2*y^2*exp(-t)*(x - 1)^2*(y - 1)^2 - 8*x^2*y^2*(x - 1)^2*(y - 1)^2*(6*x^2 - 6*x + 1)*(6*y^2 - 6*y + 1) ;}
+func real Fx(real t) {return 8*exp(-t)*(12*x - 6)*(y - 1)^2 + 48*x*exp(-t)*(x - 1)^2 + 24*x^2*exp(-t)*(2*x - 2) + 8*y^2*exp(-t)*(12*x - 6) + 64*x*y^2*(2*x^2 - 3*x + 1)^2*(2*y^2 - 3*y + 1)^2 + 16*y*exp(-t)*(12*x - 6)*(2*y - 2) + 2*x*y^2*exp(-t)*(x - 1)^2*(y - 1)^2 + 64*x^2*y^2*(4*x - 3)*(2*x^2 - 3*x + 1)*(2*y^2 - 3*y + 1)^2 + x^2*y^2*exp(-t)*(2*x - 2)*(y - 1)^2 - 8*x^2*y^2*(12*x - 6)*(x - 1)^2*(y - 1)^2*(6*y^2 - 6*y + 1) - 8*x^2*y^2*(2*x - 2)*(y - 1)^2*(6*x^2 - 6*x + 1)*(6*y^2 - 6*y + 1) - 16*x*y^2*(x - 1)^2*(y - 1)^2*(6*x^2 - 6*x + 1)*(6*y^2 - 6*y + 1) ;}
+func real Fy(real t) {return 24*exp(-t)*(2*y - 2)*(6*x^2 - 6*x + 1) + 48*y*exp(-t)*(y - 1)^2 + 48*y*exp(-t)*(6*x^2 - 6*x + 1) + 24*y^2*exp(-t)*(2*y - 2) + 64*x^2*y*(2*x^2 - 3*x + 1)^2*(2*y^2 - 3*y + 1)^2 + 2*x^2*y*exp(-t)*(x - 1)^2*(y - 1)^2 + 64*x^2*y^2*(4*y - 3)*(2*x^2 - 3*x + 1)^2*(2*y^2 - 3*y + 1) + x^2*y^2*exp(-t)*(2*y - 2)*(x - 1)^2 - 8*x^2*y^2*(12*y - 6)*(x - 1)^2*(y - 1)^2*(6*x^2 - 6*x + 1) - 8*x^2*y^2*(2*y - 2)*(x - 1)^2*(6*x^2 - 6*x + 1)*(6*y^2 - 6*y + 1) - 16*x^2*y*(x - 1)^2*(y - 1)^2*(6*x^2 - 6*x + 1)*(6*y^2 - 6*y + 1) ;}
+
+func real G(real t) {return 24*x^2*exp(t)*(x - 1)^2 + 24*y^2*exp(t)*(y - 1)^2 + 8*y^2*exp(t)*(6*x^2 - 6*x + 1) + 8*exp(t)*(y - 1)^2*(6*x^2 - 6*x + 1) + 16*y*exp(t)*(2*y - 2)*(6*x^2 - 6*x + 1) - 16*x^2*y^2*exp(-2*t)*(2*x^2 - 3*x + 1)^2*(2*y^2 - 3*y + 1)^2 + 4*x^2*y^2*exp(-2*t)*(x - 1)^2*(y - 1)^2*(6*x^2 - 6*x + 1)*(6*y^2 - 6*y + 1) ;}
+func real Gx(real t) {return 24*x^2*exp(t)*(2*x - 2) + 8*y^2*exp(t)*(12*x - 6) + 8*exp(t)*(12*x - 6)*(y - 1)^2 + 48*x*exp(t)*(x - 1)^2 + 16*y*exp(t)*(12*x - 6)*(2*y - 2) - 32*x*y^2*exp(-2*t)*(2*x^2 - 3*x + 1)^2*(2*y^2 - 3*y + 1)^2 - 32*x^2*y^2*exp(-2*t)*(4*x - 3)*(2*x^2 - 3*x + 1)*(2*y^2 - 3*y + 1)^2 + 8*x*y^2*exp(-2*t)*(x - 1)^2*(y - 1)^2*(6*x^2 - 6*x + 1)*(6*y^2 - 6*y + 1) + 4*x^2*y^2*exp(-2*t)*(12*x - 6)*(x - 1)^2*(y - 1)^2*(6*y^2 - 6*y + 1) + 4*x^2*y^2*exp(-2*t)*(2*x - 2)*(y - 1)^2*(6*x^2 - 6*x + 1)*(6*y^2 - 6*y + 1) ;}
+func real Gy(real t) {return 48*y*exp(t)*(6*x^2 - 6*x + 1) + 24*y^2*exp(t)*(2*y - 2) + 24*exp(t)*(2*y - 2)*(6*x^2 - 6*x + 1) + 48*y*exp(t)*(y - 1)^2 - 32*x^2*y*exp(-2*t)*(2*x^2 - 3*x + 1)^2*(2*y^2 - 3*y + 1)^2 - 32*x^2*y^2*exp(-2*t)*(4*y - 3)*(2*x^2 - 3*x + 1)^2*(2*y^2 - 3*y + 1) + 8*x^2*y*exp(-2*t)*(x - 1)^2*(y - 1)^2*(6*x^2 - 6*x + 1)*(6*y^2 - 6*y + 1) + 4*x^2*y^2*exp(-2*t)*(12*y - 6)*(x - 1)^2*(y - 1)^2*(6*x^2 - 6*x + 1) + 4*x^2*y^2*exp(-2*t)*(2*y - 2)*(x - 1)^2*(6*x^2 - 6*x + 1)*(6*y^2 - 6*y + 1) ;}
+
+
+//real N=200/M^2;
+//fespace Vh(Th,P2Morley); // The Morley FES
+fespace Vh1(Th,P0);
+Vh1 h=hTriangle;
+real dt=1./M;
+real t=dt;
+Vh [u,ux,uy],[phi,phix,phiy],[v,vx,vy],[q,qx,qy];
+Vh [u0,u0x,u0y],[u1,u1x,u1y], [v0,v0x,v0y],[v1,v1x,v1y];    
+Vh [f0,f0x,f0y],[f1,f1x,f1y],[f2,f2x,f2y],[g0,g0x,g0y],[g1,g1x,g1y],[g2,g2x,g2y],[ut0,ut0x,ut0y];
+// [ff0,ff0x,ff0y],[gg1,gg1x,gg1y+int2d(Th)((0.5)*bilaplacian(v1,q)+1./8*vkm(u1,u1)*q-(0.5)*(g1*q)-(0.5)*(g2*q))   
+[f0,f0x,f0y]=[F(t-dt),Fx(t-dt),Fy(t-dt)];
+[f1,f1x,f1y]=[F(t),Fx(t),Fy(t)];
+[g0,g0x,g0y]=[G(t-dt),Gx(t-dt),Gy(t-dt)];
+[g1,g1x,g1y]=[G(t),Gx(t),Gy(t)];
+
+[u0,u0x,u0y]  =[ue(t-dt),uex(t-dt),uey(t-dt)];cout<<"u0   * = "<<u0(.5,.5)<<endl;
+//0,v0x,v0y]  =[ve(t-dt),vex(t-dt),vey(t-dt)];cout<<"v0* = "<<v0(.5,.5)<<endl;
+//[ut0,ut0x,ut0y]  =[uet(t-dt),uetx(t-dt),uety(t-dt)];
+Vh [w,wx,wy],[z,zx,zy];
+//problem(note that in our case v_0=-u0)
+solve var ([w,wx,wy],[z,zx,zy])=int2d(Th)(bilaplacian(w, z))+int2d(Th)(0.5*vkm(u0,u0)*z)
++ on(1,2,3,4,w=0,wx=0,wy=0);
+var;
+[v0,v0x,v0y] =[w,wx,wy];
+//cout<<"u** = "<<u1(.5,.5)<<endl;
+Vh [w1,w1x,w1y],[z1,z1x,z1y],[w2,w2x,w2y],[z2,z2x,z2y];
+real DBC1=0.;
+Vh [uh01,uh01x,uh01y]=[DBC1,DBC1,DBC1],[vh01,vh01x,vh01y]=[DBC1,DBC1,DBC1];
+Vh [uu1,uu1x,uu1y]=[uh01,uh01x,uh01y],[vv1,vv1x,vv1y]=[vh01,vh01x,vh01y];
+
+//problem(note that in our case v_0=-u0)
+solve var1 ([w1,w1x,w1y,w2,w2x,w2y],[z1,z1x,z1y,z2,z2x,z2y])=int2d(Th)(2./dt^2*w1*z1+0.5*bilaplacian(w1, z1)-0.5*vkm(w1,z1)*vv1-0.5*vkm(w1,z1)*v0-0.5*vkm(u0,z1)*w2)
+                                                         +int2d(Th)(-2*1./dt^2*u0*z1+2./dt*u0*z1+0.5*bilaplacian(u0, z1)-0.5*vkm(u0,z1)*v0-0.5*f0*z1-0.5*f1*z1)
+                                                         +int2d(Th)(bilaplacian(w2,z2)+0.5*vkm(uu1,w1)*z2)
+                                                         +int2d(Th)( -g1*z2)
+                                                         + on(1,2,3,4,w1=0,w1x=0,w1y=0,w2=0,w2x=0,w2y=0);
+ real err=1.; // for the convergence
+ while (err >= 1e-10){
+ var1;
+ err=sqrt(int2d(Th)((w1-uu1)^2)+(w2-vv1)^2);
+ [uu1,uu1x,uu1y]=[w1,w1x,w1y];
+ [vv1,vv1x,vv1y]=[w2,w2x,w2y];
+}
+[u1,u1x,u1y] =[w1,w1x,w1y];
+[v1,v1x,v1y] =[w2,w2x,w2y];
+
+//[u1,u1x,u1y]  =[ue(t),uex(t),uey(t)];cout<<"v1* = "<<u0(.5,.5)<<endl;
+//[v1,v1x,v1y]  =[ve(t),vex(t),vey(t)];cout<<"v1* = "<<v0(.5,.5)<<endl;
+
+real E0=0.0,E2=0.0,Ev0=0.0,Ev2=0.0;
+while(t<T){
+  real te = T - t;
+    if (t + dt > T) {
+       dt = te;
+        t = T;
+    } else {
+t=t+dt;} 
+[f0,f0x,f0y] = [F(t-2*dt),Fx(t-2*dt),Fy(t-2*dt)]; 
+[f1,f1x,f1y] =[F(t-dt),Fx(t-dt),Fy(t-dt)];      
+[f2,f2x,f2y] = [F(t),Fx(t),Fy(t)]; 
+[g0,g0x,g0y] = [G(t-2*dt),Gx(t-2*dt),Gy(t-2*dt)]; 
+[g1,g1x,g1y] =[G(t-dt),Gx(t-dt),Gy(t-dt)];      
+[g2,g2x,g2y] = [G(t),Gx(t),Gy(t)]; 
+real DBC=0.;
+Vh [uh0,uh0x,uh0y]=[DBC,DBC,DBC],[vh0,vh0x,vh0y]=[DBC,DBC,DBC];
+Vh [uu,uux,uuy]=[uh0,uh0x,uh0y],[vv,vvx,vvy]=[vh0,vh0x,vh0y];
+ problem BHE([u,ux,uy,v,vx,vy],[phi,phix,phiy,q,qx,qy]) =int2d(Th)((1./dt^2)*(u*phi)+(0.25)*bilaplacian(u,phi)
+                                -1./16*vkm(u,phi)*vv-1./8*vkm(u1,phi)*v-1./16*vkm(u0,phi)*v -1./16*vkm(u,phi)*v0)
+                                +int2d(Th)((0.25)*bilaplacian(u0,phi)+(0.5)*bilaplacian(u1,phi)-1./4*vkm(u1,phi)*v1-1./8*vkm(u0,phi)*v1-1./16*vkm(u0,phi)*v0
+                                -1./8*vkm(u1,phi)*(v0)-(2.0/dt^2)*(u1*phi)+(1./dt^2)*(u0*phi)-(0.25)*(f0*phi)-(0.5)*(f1*phi)-(0.25)*(f2*phi))
+                                +int2d(Th)((0.5)*bilaplacian(v,q)+1./8*vkm(uu,u)*q+1./4*vkm(u,u1)*q)
+                                +int2d(Th)((0.5)*bilaplacian(v1,q)+1./8*vkm(u1,u1)*q-(0.5)*(g1*q)-(0.5)*(g2*q))   
+                                 + on(1,2,3,4,u=0,ux=0,uy=0,v=0,vx=0,vy=0);
+
+ real err=1.; // for the convergence
+ while (err >= 1e-10){
+ BHE;
+ err=sqrt(int2d(Th)((u-uu)^2)+(v-vv)^2);
+ [uu,uux,uuy]=[u,ux,uy];
+ [vv,vvx,vvy]=[v,vx,vy];
+}
+
+[u0,u0x,u0y]=[u1,u1x,u1y];
+[u1,u1x,u1y]= [u,ux,uy];
+[v0,v0x,v0y]=[v1,v1x,v1y];
+[v1,v1x,v1y]= [v,vx,vy];
+
+cout<<"u = "<<u(.5,.5)<<endl;
+cout<<"u0 = "<<u0(.5,.5)<<endl; 
+// [uexact,uexactx,uexacty]; [uexact,uexactx,uexacty]=[ue(t),uex(t),uey(t)]; 
+// [vexact,vexactx,vexacty]; [vexact,vexactx,vexacty]=[ve(t),vex(t),vey(t)];
+real error0=sqrt(int2d(Th)((ue(t)-u)^2));//sqrt(int2d(Th)((ue(t)-u)^2));
+real error2= sqrt(int2d(Th)(((uexx(t))-dxx(u))^2+(ueyy(t)-dyy(u))^2+ 2.0*(uexy(t)-dxy(u))^2 ));
+real errorv0=sqrt(int2d(Th)((ve(t)-v)^2));//sqrt(int2d(Th)((ue(t)-u)^2));
+real errorv2= sqrt(int2d(Th)(((vexx(t))-dxx(v))^2+(veyy(t)-dyy(v))^2+ 2.0*(vexy(t)-dxy(v))^2 ));  
+E0=max(E0,error0);
+E2=max(E2,error2);
+Ev0=max(Ev0,errorv0);
+Ev2=max(Ev2,errorv2);
+
+                       
+}
+cout<<"--------------------------"<<endl;
+cout<<"Time of interest T = "<<t<<endl;
+Vh [uexact,uexactx,uexacty]; [uexact,uexactx,uexacty]=[ue(t),uex(t),uey(t)];  //Vh [uexact,uexactx,uexacty]; [uexact,uexactx,uexacty]=[ue(t-dt*0.5),uex(t-dt*0.5),uey(t-dt*0.5)];
+Vh [vexact,vexactx,vexacty]; [vexact,vexactx,vexacty]=[ve(t),vex(t),vey(t)]; 
+plot(uexact,cmm="Exact Soln",fill=true, value=true, wait=true,dim=3);
+plot(u,cmm="Numer. Soln",fill=true, value=true, wait=true, dim=3);  
+plot(vexact,cmm="Exact Soln..v",fill=true, value=true, wait=true,dim=3);
+plot(v,cmm="Numer. Soln...v",fill=true, value=true, wait=true, dim=3);
+l2error[j]=E0;
+Energyerror[j]=E2;
+l2errorv[j]=Ev0;
+Energyerrorv[j]=Ev2;
+
+hh(j)=1./M;
+}
+for(int i=0;i<p;i++){ 
+      cout<<"========================================="<<endl;      
+      cout<<"Errors at i th level = "<<i<<endl;
+      cout<<" L2 Error:= "<<l2error[i]<<endl;
+      cout<<" Energy Error:=  "<<Energyerror[i]<<endl;
+                     }   
+for(int i=0;i<p-1;i++){
+      
+      l2order[i]=log(l2error[i]/l2error[i+1])/log(2.0);
+      Energyorder[i]=log(Energyerror[i]/Energyerror[i+1])/log(2.0);
+      l2orderv[i]=log(l2errorv[i]/l2errorv[i+1])/log(2.0);
+      Energyorderv[i]=log(Energyerrorv[i]/Energyerrorv[i+1])/log(2.0);
+      cout<<"#########################################"<<endl;
+      cout<<"ROCs at ith level = "<<i<<endl; 
+      cout<<"h= "<<hh[i]<<endl;
+      cout<<"L2 Order u: "<<l2order[i]<<endl;
+      cout<<"L2 Order v: "<<l2orderv[i]<<endl;
+
+      cout<<"Energy Order u:  "<<Energyorder[i]<<endl;
+      cout<<"Energy Order v:  "<<Energyorderv[i]<<endl;
+
+ }
